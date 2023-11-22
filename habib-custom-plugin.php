@@ -1,14 +1,14 @@
 <?php
 /*
  * Plugin Name:       Hide Woo Categories and Show for Particular Users
- * Plugin URI:        https://github.com/weblearnerhabib/
+ * Plugin URI:        https://github.com/weblearnerhabib/Hide-Woo-Categories-and-Show-for-Particular-Users
  * Description:       Go to Setting then navigate Hide Category Settings, then set users and exclude categories easily. You can add multiple categories by , and also can add multiple user using , Comma.
- * Version:           1.2.1
+ * Version:           2.1.3
  * Requires at least: 5.3
  * Requires PHP:      7.2
  * Author:            Freelancer Habib
  * Author URI:        https://freelancer.com/u/csehabiburr183/
- * Update URI:        https://github.com/weblearnerhabib/
+ * Update URI:        https://github.com/weblearnerhabib/Hide-Woo-Categories-and-Show-for-Particular-Users
  * Text Domain:       hwcspu
  */
 
@@ -17,7 +17,8 @@ defined('ABSPATH') || exit;
 
 // Add a settings page to the WordPress dashboard.
 function hide_woocommerce_category_settings_page() {
-    add_options_page(
+    add_submenu_page(
+        'options-general.php', // Parent menu slug that doesn't exist
         'Hide WooCommerce Category Settings',
         'Hide Category Settings',
         'manage_options',
@@ -66,8 +67,10 @@ function hide_woocommerce_category_register_settings() {
 }
 add_action('admin_init', 'hide_woocommerce_category_register_settings');
 
+
+
 // Function to hide specific WooCommerce product categories.
-function hide_woocommerce_category_exclude_category($query) {
+function hide_woocommerce_category_exclude_category($q) {
     if ((is_shop() || is_product_category()) && !is_admin()) {
         // Get the excluded category IDs.
         $excluded_category_ids = get_option('excluded_category_ids', '');
@@ -80,11 +83,23 @@ function hide_woocommerce_category_exclude_category($query) {
         $allowed_usernames_array = array_map('trim', explode(',', $allowed_usernames));
 
         if (!in_array($current_user->user_login, $allowed_usernames_array)) {
-            // Exclude the specified product categories.
-            $query->set('product_cat', '-' . $excluded_category_ids);
+            // Exclude the specified product categories using woocommerce_product_query.
+            $excluded_category_ids_array = array_map('intval', array_map('trim', explode(',', $excluded_category_ids)));
+
+            if (!empty($excluded_category_ids_array)) {
+                $q->set('tax_query', array(
+                    array(
+                        'taxonomy' => 'product_cat',
+                        'field'    => 'id',
+                        'terms'    => $excluded_category_ids_array,
+                        'operator' => 'NOT IN',
+                    ),
+                ));
+                
+                // Add CSS to hide category with class .cat-item-264
+                echo '<style>.cat-item-264 { display: none; }</style>';
+            }
         }
     }
 }
-
-// Hook the function to the pre_get_posts action.
-add_action('pre_get_posts', 'hide_woocommerce_category_exclude_category');
+add_action('woocommerce_product_query', 'hide_woocommerce_category_exclude_category');
